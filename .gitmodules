@@ -1,0 +1,3 @@
+[submodule "owt-server-p2p"]
+	path = owt-server-p2p
+	url = https://github.com/open-webrtc-toolkit/owt-server-p2p.git
