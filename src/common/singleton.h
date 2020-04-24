@@ -1,7 +1,7 @@
 #ifndef CCM_SINGLETON_H_
 #define CCM_SINGLETON_H_
 
-#define CCM_SINGLETON_DEFINE(type_name)	\
+#define SINGLETON_DEFINE(type_name)	\
 static type_name* GetInstance()	\
 {\
     static type_name type_instance;\

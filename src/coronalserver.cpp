@@ -1,33 +1,104 @@
-#include "pch.h"
+#include "../pch.h"
 #include "CoronalServer.h"
+#include <algorithm>
 
 namespace ccm
 {
-    void CoronalServer::Connect()
+    CoronalServer::CoronalServer()
+        : initailization_flag_(0)
+        , configuration_{}
+        , p2pclient_{nullptr}
+        , signaling_server_(new SignalingServer())
+        , local_peer_id_{}
+        , url_{}
+        , video_codec_{}
+        , audio_codec_{}
+    {}
+
+    CoronalServer::~CoronalServer()
     {
-        if (signaling_server_.get() == nullptr)
-        {
-            signaling_server_.reset(new SignalingServer());
-        }
+    }
+
+    void CoronalServer::Init()
+    {
         owt::base::GlobalConfiguration::SetVideoHardwareAccelerationEnabled(true);
         video_codec_ = "H264";
         audio_codec_ = "OPUS";
-        owt::base::VideoCodecParameters video_codec_params;
-        owt::base::AudioCodecParameters audio_codec_params;
-        video_codec_params.name = GetVidoeCodec(video_codec_);
-        audio_codec_params.name = GetAudioCodec(audio_codec_);
-        owt::base::VideoEncodingParameters video_params(video_codec_params, 0, true);
-        owt::base::AudioEncodingParameters audio_params(audio_codec_params, 0);
-        configuration_.video_encodings.emplace_back(video_params);
-        configuration_.audio_encodings.emplace_back(audio_params);
-        url_ = "http://10.67.113.69:8095";
+        AddVideoCodecToConfig(video_codec_);
+        AddAudioCodecToConfig(audio_codec_);
+        url_ = "http://10.67.113.97:8095";
         local_peer_id_ = "client";
-        if (p2pclient_.get() == nullptr)
-        {
-            p2pclient_.reset(new owt::p2p::P2PClient(configuration_,signaling_server_));
-        }
+    }
+
+    void CoronalServer::Connect()
+    {
+        if (p2pclient_ != nullptr) return;
+        p2pclient_ = std::make_shared<owt::p2p::P2PClient>(configuration_, signaling_server_);
         p2pclient_->AddObserver(*this);
         p2pclient_->Connect(url_,local_peer_id_,nullptr,nullptr);
+        
+    }
+
+    void CoronalServer::SetRemoteId(std::string id)
+    {
+        remote_peer_id_ = id;
+        p2pclient_->AddAllowedRemoteId(id);
+    }
+
+    void CoronalServer::Start()
+    {
+        p2pclient_->Send(remote_peer_id_, "start", nullptr, nullptr);
+    }
+
+    void CoronalServer::Disconnect()
+    {
+        p2pclient_->Disconnect(nullptr, nullptr);
+    }
+
+    void CoronalServer::AddVideoCodecToConfig(std::string codec_name)
+    {
+        owt::base::VideoCodecParameters video_codec_params;
+        video_codec_params.name = GetVidoeCodec(codec_name);
+        if (video_codec_params.name == owt::base::VideoCodec::kUnknown) return;
+        owt::base::VideoEncodingParameters video_params(video_codec_params, 0, true);
+        configuration_.video_encodings.emplace_back(video_params);
+    }
+
+    void CoronalServer::RemoveVideoCodecFromConfig(std::string codec_name)
+    {
+        auto code_name = GetVidoeCodec(codec_name);
+        auto& codec_vector = configuration_.video_encodings;
+        for (auto i = codec_vector.begin(); i != codec_vector.end(); i++)
+        {
+            if (i->codec.name == code_name)
+            {
+                codec_vector.erase(i);
+                break;
+            }
+        }
+    }
+
+    void CoronalServer::AddAudioCodecToConfig(std::string codec_name)
+    {
+        owt::base::AudioCodecParameters audio_codec_params;
+        audio_codec_params.name = GetAudioCodec(codec_name);
+        if (audio_codec_params.name == owt::base::AudioCodec::kUnknown) return;
+        owt::base::AudioEncodingParameters audio_params(audio_codec_params, 0);
+        configuration_.audio_encodings.emplace_back(audio_params);
+    }
+
+    void CoronalServer::RemoveAudioCodecFromConfig(std::string codec_name)
+    {
+        auto code_name = GetAudioCodec(codec_name);
+        auto& codec_vector = configuration_.audio_encodings;
+        for (auto i = codec_vector.begin(); i != codec_vector.end(); i++)
+        {
+            if (i->codec.name == code_name)
+            {
+                codec_vector.erase(i);
+                break;
+            }
+        }
     }
 
     owt::base::VideoCodec CoronalServer::GetVidoeCodec(std::string video_codec_name)
