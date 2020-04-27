@@ -1,0 +1,2 @@
+class People:
+    name = 'none'
